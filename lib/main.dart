@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:todoodoo/screens/loading_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'screens/loading_screen.dart';
+import 'providers/theme_provider.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'TodoDooo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+       debugShowCheckedModeBanner: false,
+      theme: ThemeData.light(),
+      darkTheme: ThemeData.dark(),
+      themeMode: ref.watch(themeProvider) ? ThemeMode.dark : ThemeMode.light,
       home: const LoadingScreen(),
     );
   }

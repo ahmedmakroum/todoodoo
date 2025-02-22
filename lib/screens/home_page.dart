@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:todoodoo/screens/planner_page.dart';
 import 'package:todoodoo/screens/settings_page.dart';
+import 'package:todoodoo/screens/todo_page.dart';
+import 'package:todoodoo/screens/calendar_page.dart';
 import '../services/database_service.dart';
+import '../providers/theme_provider.dart';
+import '../providers/focus_mode_provider.dart';
+import 'planner_page.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({Key? key}) : super(key: key);
 
   @override
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
   // Timer Logic
   int totalWorkTime = 1500; // 25 minutes default
   int remainingTime = 1500;
@@ -33,6 +38,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     {'id': 1, 'name': 'CareerFoundry Course'},
     {'id': 2, 'name': 'Marketing Team Project'},
   ];
+
   List<Map<String, dynamic>> labels = [
     {'id': 1, 'name': 'Study'},
     {'id': 2, 'name': 'Sports'},
@@ -44,7 +50,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     initializeDatabase();
     initializeNotifications();
   }
@@ -144,7 +150,55 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             return AlertDialog(
               title: Text('Set Timer'),
               content: Row(
-                // ... rest of your existing dialog content ...
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Hours'),
+                      IconButton(
+                        icon: Icon(Icons.arrow_upward),
+                        onPressed: () {
+                          setState(() {
+                            if (selectedHours < 23) selectedHours++;
+                          });
+                        },
+                      ),
+                      Text('$selectedHours'),
+                      IconButton(
+                        icon: Icon(Icons.arrow_downward),
+                        onPressed: () {
+                          setState(() {
+                            if (selectedHours > 0) selectedHours--;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Minutes'),
+                      IconButton(
+                        icon: Icon(Icons.arrow_upward),
+                        onPressed: () {
+                          setState(() {
+                            if (selectedMinutes < 59) selectedMinutes++;
+                          });
+                        },
+                      ),
+                      Text('$selectedMinutes'),
+                      IconButton(
+                        icon: Icon(Icons.arrow_downward),
+                        onPressed: () {
+                          setState(() {
+                            if (selectedMinutes > 0) selectedMinutes--;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
@@ -196,7 +250,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: Column(
                 children: [
                   Text(
-                    "$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
+                    "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -230,6 +284,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ],
               ),
             ),
+
             // Header
             Padding(
               padding: const EdgeInsets.all(16),
@@ -243,31 +298,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.settings),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => SettingsPage()),
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.calendar_today),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => PlannerPage()),
-                          );
-                        },
-                      ),
-                    ],
+                  IconButton(
+                    icon: Icon(Icons.settings),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => SettingsPage()),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
+
             // View Tabs
             Container(
               decoration: BoxDecoration(
@@ -284,8 +327,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 controller: _tabController,
                 tabs: const [
                   Tab(
+                    icon: Icon(Icons.home),
+                    text: 'Home',
+                  ),
+                  Tab(
                     icon: Icon(Icons.list),
-                    text: 'List',
+                    text: 'To-do List',
                   ),
                   Tab(
                     icon: Icon(Icons.calendar_today),
@@ -293,105 +340,124 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   ),
                   Tab(
                     icon: Icon(Icons.dashboard),
-                    text: 'Kanban',
+                    text: 'Trello',
                   ),
                 ],
               ),
             ),
+
+            // Content Area with TabBarView
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+              child: TabBarView(
+                controller: _tabController,
                 children: [
-                  // Projects Section
-                  _buildSection(
-                    'Projects',
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: projects.length,
-                      itemBuilder: (context, index) {
-                        return Card(
-                          child: ListTile(
-                            leading: const Icon(Icons.folder_outlined),
-                            title: Text(projects[index]['name']),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Labels Section
-                  _buildSection(
-                    'Labels',
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 3,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
+                  // Home Tab
+                  ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Projects Section
+                      _buildSection(
+                        'Projects',
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: projects.length,
+                          itemBuilder: (context, index) {
+                            return Card(
+                              child: ListTile(
+                                leading: const Icon(Icons.folder_outlined),
+                                title: Text(projects[index]['name']),
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                      itemCount: labels.length,
-                      itemBuilder: (context, index) {
-                        return Card(
-                          child: Center(
-                            child: ListTile(
-                              leading: const Icon(Icons.label_outline),
-                              title: Text(
-                                labels[index]['name'],
-                                style: const TextStyle(fontSize: 14),
+                      const SizedBox(height: 16),
+
+                      // Labels Section
+                      _buildSection(
+                        'Labels',
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 3,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                          ),
+                          itemCount: labels.length,
+                          itemBuilder: (context, index) {
+                            return Card(
+                              child: Center(
+                                child: ListTile(
+                                  leading: const Icon(Icons.label_outline),
+                                  title: Text(
+                                    labels[index]['name'],
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Status Section
+                      _buildSection(
+                        'Status',
+                        Row(
+                          children: const [
+                            Expanded(
+                              child: Card(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text(
+                                    'To do',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Card(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text(
+                                    'Doing',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Card(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text(
+                                    'Done',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  // Status Section
-                  _buildSection(
-                    'Status',
-                    Row(
-                      children: const [
-                        Expanded(
-                          child: Card(
-                            child: Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'To do',
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Card(
-                            child: Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'Doing',
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Card(
-                            child: Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'Done',
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  
+                  // To-do List Tab
+                  TodoPage(),
+                  
+                  // Calendar Tab
+                  CalendarPage(),
+                  
+                  // Trello Tab (pointing to Planner)
+                  PlannerPage(),
                 ],
               ),
             ),
@@ -400,7 +466,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Implement add new task functionality
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => PlannerPage()),
@@ -447,5 +512,3 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 }
-
-

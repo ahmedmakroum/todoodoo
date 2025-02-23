@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:todoodoo/screens/add_task_page.dart';
 import 'package:todoodoo/screens/settings_page.dart';
 import 'package:todoodoo/screens/todo_page.dart';
 import 'package:todoodoo/screens/calendar_page.dart';
@@ -451,7 +452,7 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
                   ),
                   
                   // To-do List Tab
-                  TodoPage(),
+                  ToDoPage(),
                   
                   // Calendar Tab
                   CalendarPage(),
@@ -468,7 +469,7 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => PlannerPage()),
+            MaterialPageRoute(builder: (context) => AddTaskPage(onAddTask: (TaskModel ) {  },)),
           );
         },
         child: const Icon(Icons.add),

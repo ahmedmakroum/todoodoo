@@ -1,20 +1,24 @@
+import 'package:sqflite/sqflite.dart';
+import '../models/label_model.dart';
+import '../services/database_service.dart';
+
 class TaskModel {
   final int? id;
   final String title;
   final int? projectId;
-  final int? labelId;
   final String status;
   final DateTime? dueDate;
   final bool repeats;
+  final List<LabelModel> labels;
 
   TaskModel({
     this.id,
     required this.title,
     this.projectId,
-    this.labelId,
     required this.status,
     this.dueDate,
     this.repeats = false,
+    this.labels = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -22,22 +26,22 @@ class TaskModel {
       'id': id,
       'title': title,
       'project_id': projectId,
-      'label_id': labelId,
       'status': status,
       'due_date': dueDate?.toIso8601String(),
       'repeats': repeats ? 1 : 0,
     };
-  } 
+  }
 
-  factory TaskModel.fromMap(Map<String, dynamic> map) {
+  static Future<TaskModel> fromMap(Map<String, dynamic> map, DatabaseService db) async {
+    final labels = await db.getLabelsForTask(map['id']);
     return TaskModel(
       id: map['id'],
       title: map['title'],
       projectId: map['project_id'],
-      labelId: map['label_id'],
       status: map['status'],
       dueDate: map['due_date'] != null ? DateTime.parse(map['due_date']) : null,
       repeats: map['repeats'] == 1,
+      labels: labels,
     );
   }
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:todoodoo/models/task_model.dart';
+import '../models/task_model.dart';
+import '../models/label_model.dart';
+import '../services/database_service.dart';
+import 'package:todoodoo/services/notification_service.dart';
 
 class AddTaskPage extends StatefulWidget {
   final Function(TaskModel) onAddTask;
@@ -15,10 +18,24 @@ class AddTaskPage extends StatefulWidget {
 
 class _AddTaskPageState extends State<AddTaskPage> {
   final TextEditingController _titleController = TextEditingController();
+  final DatabaseService _databaseService = DatabaseService();
   DateTime? _dueDate;
-  int _labelId = 0;
   bool _repeats = false;
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  List<LabelModel> _selectedLabels = [];
+  List<LabelModel> _availableLabels = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLabels();
+  }
+
+  Future<void> _loadLabels() async {
+    final labels = await _databaseService.getLabels();
+    setState(() {
+      _availableLabels = labels;
+    });
+  }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -27,7 +44,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
-    if (picked != null && picked != _dueDate) {
+    if (picked != null) {
       setState(() {
         _dueDate = picked;
       });
@@ -35,17 +52,27 @@ class _AddTaskPageState extends State<AddTaskPage> {
   }
 
   void _handleSubmit() {
-    if (_formKey.currentState!.validate()) {
+    if (_titleController.text.isNotEmpty) {
       final task = TaskModel(
         title: _titleController.text,
         status: 'todo',
         dueDate: _dueDate,
-        labelId: _labelId,
         repeats: _repeats,
+        labels: _selectedLabels,
       );
       
       widget.onAddTask(task);
+      
+      // Schedule notification if there's a due date or if task repeats
+      if (task.dueDate != null || task.repeats) {
+        NotificationService().scheduleTaskNotification(task);
+      }
+      
       Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a task title')),
+      );
     }
   }
 
@@ -53,54 +80,94 @@ class _AddTaskPageState extends State<AddTaskPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add Task'),
+        title: const Text('Add Task'),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
               controller: _titleController,
-              decoration: InputDecoration(labelText: 'Title'),
+              decoration: const InputDecoration(
+                labelText: 'Title',
+                border: OutlineInputBorder(),
+              ),
             ),
-            SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => _selectDate(context),
-              child: Text('Select Deadline'),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(_dueDate == null 
+                    ? 'No deadline set' 
+                    : 'Deadline: ${_dueDate!.toLocal().toString().split(' ')[0]}'
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _selectDate(context),
+                  icon: const Icon(Icons.calendar_today),
+                  label: const Text('Set Deadline'),
+                ),
+              ],
             ),
-            SizedBox(height: 16),
-            DropdownButton<int>(
-              value: _labelId,
-              onChanged: (int? newValue) {
-                setState(() {
-                  _labelId = newValue!;
-                });
-              },
-              items: <int>[0, 1, 2, 3, 4, 5].map<DropdownMenuItem<int>>((int value) {
-                return DropdownMenuItem<int>(
-                  value: value,
-                  child: Text('Label $value'),
-                );
-              }).toList(),
+            const SizedBox(height: 16),
+            Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text('Labels', style: Theme.of(context).textTheme.titleMedium),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: _availableLabels.map((label) {
+                      final isSelected = _selectedLabels.contains(label);
+                      return FilterChip(
+                        label: Text(label.name),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedLabels.add(label);
+                            } else {
+                              _selectedLabels.remove(label);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
             ),
-            SizedBox(height: 16),
-            CheckboxListTile(
-              title: Text('Repeats'),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Repeating Task'),
               value: _repeats,
-              onChanged: (bool? value) {
+              onChanged: (bool value) {
                 setState(() {
-                  _repeats = value!;
+                  _repeats = value;
                 });
               },
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _handleSubmit,
-              child: Text('Save'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: const Text('Save Task'),
             ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
   }
 }

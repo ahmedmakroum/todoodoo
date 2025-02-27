@@ -12,12 +12,14 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDarkMode = ref.watch(themeProvider);
+    
     return MaterialApp(
       title: 'TodoDooo',
-       debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false,
       theme: ThemeData.light(),
       darkTheme: ThemeData.dark(),
-      themeMode: ref.watch(themeProvider) ? ThemeMode.dark : ThemeMode.light,
+      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: const LoadingScreen(),
     );
   }

@@ -4,7 +4,10 @@ import 'package:todoodoo/models/task_model.dart';
 class AddTaskPage extends StatefulWidget {
   final Function(TaskModel) onAddTask;
 
-  const AddTaskPage({Key? key, required this.onAddTask}) : super(key: key);
+  const AddTaskPage({
+    Key? key,
+    required this.onAddTask,
+  }) : super(key: key);
 
   @override
   _AddTaskPageState createState() => _AddTaskPageState();
@@ -15,6 +18,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
   DateTime? _dueDate;
   int _labelId = 0;
   bool _repeats = false;
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -27,6 +31,21 @@ class _AddTaskPageState extends State<AddTaskPage> {
       setState(() {
         _dueDate = picked;
       });
+    }
+  }
+
+  void _handleSubmit() {
+    if (_formKey.currentState!.validate()) {
+      final task = TaskModel(
+        title: _titleController.text,
+        status: 'todo',
+        dueDate: _dueDate,
+        labelId: _labelId,
+        repeats: _repeats,
+      );
+      
+      widget.onAddTask(task);
+      Navigator.pop(context);
     }
   }
 
@@ -76,16 +95,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
             ),
             SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () {
-                final task = TaskModel(
-                  title: _titleController.text,
-                  dueDate: _dueDate?.toIso8601String(),
-                  labelId: _labelId,
-                  repeats: _repeats,
-                );
-                widget.onAddTask(task);
-                Navigator.pop(context);
-              },
+              onPressed: _handleSubmit,
               child: Text('Save'),
             ),
           ],

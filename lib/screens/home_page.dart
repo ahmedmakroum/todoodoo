@@ -8,10 +8,11 @@ import 'package:todoodoo/screens/add_task_page.dart';
 import 'package:todoodoo/screens/settings_page.dart';
 import 'package:todoodoo/screens/todo_page.dart';
 import 'package:todoodoo/screens/calendar_page.dart';
-import '../services/database_service.dart';
+import 'package:todoodoo/screens/timer_page.dart'; // Import for the new timer page
 import '../providers/theme_provider.dart';
-import '../providers/focus_mode_provider.dart';
 import 'planner_page.dart';
+import '../models/task_model.dart';
+import '../services/focus_mode_service.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -21,18 +22,16 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
-  // Timer Logic
-  int totalWorkTime = 1500; // 25 minutes default
-  int remainingTime = 1500;
-  double progress = 0.0;
-  bool isRunning = false;
-  Timer? _timer;
-
   // Database and Notifications
   late TabController _tabController;
   late Database database;
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+
+  // Focus Stats (to be loaded from shared preferences or database)
+  int totalFocusedMinutes = 0;
+  int todayFocusedMinutes = 0;
+  int weekFocusedMinutes = 0;
 
   // Sample Data
   List<Map<String, dynamic>> projects = [
@@ -42,39 +41,65 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
 
   List<Map<String, dynamic>> labels = [
     {'id': 1, 'name': 'Study'},
-    {'id': 2, 'name': 'Sports'},
-    {'id': 3, 'name': 'Work'},
-    {'id': 4, 'name': 'Personal'},
-    {'id': 5, 'name': 'Habit'},
+    {'id': 2, 'name': 'Work'},
+    {'id': 3, 'name': 'Personal'},
+    {'id': 4, 'name': 'Habit'},
   ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    initializeDatabase();
-    initializeNotifications();
+    _tabController = TabController(length: 5, vsync: this);
+    initializeDatabase().catchError((error) {
+      debugPrint('Database initialization error: $error');
+    });
+    initializeNotifications().catchError((error) {
+      debugPrint('Notifications initialization error: $error');
+    });
+    loadFocusData();
   }
 
   Future<void> initializeDatabase() async {
-    String databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'todo.db');
-    database = await openDatabase(
-      path,
-      version: 1,
-      onCreate: (Database db, int version) async {
-        await db.execute('''
-          CREATE TABLE Tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            project_id INTEGER,
-            label_id INTEGER,
-            status TEXT,
-            due_date TEXT
-          )
-        ''');
-      },
-    );
+    try {
+      String databasesPath = await getDatabasesPath();
+      String path = join(databasesPath, 'todo.db');
+      database = await openDatabase(
+        path,
+        version: 2,  // Increment version number
+        onCreate: (Database db, int version) async {
+          await db.execute('''
+            CREATE TABLE Tasks (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT NOT NULL,
+              project_id INTEGER,
+              label_id INTEGER,
+              status TEXT NOT NULL,
+              due_date TEXT,
+              repeats INTEGER DEFAULT 0
+            )
+          ''');
+
+          await db.execute('''
+            CREATE TABLE FocusSessions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              start_time TEXT NOT NULL,
+              end_time TEXT NOT NULL,
+              duration_seconds INTEGER NOT NULL,
+              task_id INTEGER
+            )
+          ''');
+        },
+        onUpgrade: (Database db, int oldVersion, int newVersion) async {
+          if (oldVersion < 2) {
+            await db.execute('ALTER TABLE Tasks ADD COLUMN repeats INTEGER DEFAULT 0');
+          }
+        },
+      );
+      FocusSessionService().initialize(database);
+    } catch (e) {
+      debugPrint('Database initialization error: $e');
+      rethrow;
+    }
   }
 
   Future<void> initializeNotifications() async {
@@ -86,163 +111,50 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
-  void _startTimer() {
-    if (_timer == null || !_timer!.isActive) {
-      _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-        if (remainingTime > 0 && isRunning) {
-          setState(() {
-            remainingTime--;
-            progress = 1 - (remainingTime / totalWorkTime);
-          });
-        } else {
-          _stopTimer();
-          _showTimeUpDialog(context as BuildContext);
-        }
-      });
+  Future<void> loadFocusData() async {
+    // In a real app, you'd load this data from database or shared preferences
+    // For this example, we'll use mock data
+    setState(() {
+      totalFocusedMinutes = 436; // Sample data
+      todayFocusedMinutes = 45;  // Sample data
+      weekFocusedMinutes = 180;  // Sample data
+    });
+
+    // In actual implementation, you would have code like:
+    // final sessions = await database.query('FocusSessions', 
+    //   where: 'end_time > ?', 
+    //   whereArgs: [DateTime.now().subtract(Duration(days: 1)).toIso8601String()]
+    // );
+    // Calculate minutes from these sessions
+  }
+  
+  String _formatFocusTime(int minutes) {
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+    
+    if (hours > 0) {
+      return '$hours h ${mins > 0 ? '$mins min' : ''}';
+    } else {
+      return '$mins min';
     }
-    setState(() {
-      isRunning = true;
-    });
-  }
-
-  void _stopTimer() {
-    if (_timer != null && _timer!.isActive) {
-      _timer!.cancel();
-    }
-    setState(() {
-      isRunning = false;
-    });
-  }
-
-  void _resetTimer() {
-    _stopTimer();
-    setState(() {
-      remainingTime = totalWorkTime;
-      progress = 0.0;
-    });
-  }
-
-  void _showTimeUpDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Time\'s Up!'),
-          content: Text('You\'ve completed your work session.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showTimerSettingsDialog(BuildContext context) {
-    int selectedHours = totalWorkTime ~/ 3600;
-    int selectedMinutes = (totalWorkTime % 3600) ~/ 60;
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return AlertDialog(
-              title: Text('Set Timer'),
-              content: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Hours'),
-                      IconButton(
-                        icon: Icon(Icons.arrow_upward),
-                        onPressed: () {
-                          setState(() {
-                            if (selectedHours < 23) selectedHours++;
-                          });
-                        },
-                      ),
-                      Text('$selectedHours'),
-                      IconButton(
-                        icon: Icon(Icons.arrow_downward),
-                        onPressed: () {
-                          setState(() {
-                            if (selectedHours > 0) selectedHours--;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Minutes'),
-                      IconButton(
-                        icon: Icon(Icons.arrow_upward),
-                        onPressed: () {
-                          setState(() {
-                            if (selectedMinutes < 59) selectedMinutes++;
-                          });
-                        },
-                      ),
-                      Text('$selectedMinutes'),
-                      IconButton(
-                        icon: Icon(Icons.arrow_downward),
-                        onPressed: () {
-                          setState(() {
-                            if (selectedMinutes > 0) selectedMinutes--;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      totalWorkTime = (selectedHours * 3600) + (selectedMinutes * 60);
-                      remainingTime = totalWorkTime;
-                      progress = 0.0;
-                    });
-                    Navigator.of(dialogContext).pop();
-                  },
-                  child: Text('Set'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text('Cancel'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final int hours = remainingTime ~/ 3600;
-    final int minutes = (remainingTime % 3600) ~/ 60;
-    final int seconds = remainingTime % 60;
-
+    final theme = Theme.of(context);
+    
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            // Timer Section
+            // Focus Summary Section (replacing timer)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: theme.cardColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: theme.shadowColor.withOpacity(0.1),
                     spreadRadius: 1,
                     blurRadius: 1,
                   ),
@@ -251,36 +163,28 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
               child: Column(
                 children: [
                   Text(
-                    "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
+                    "Focus Summary",
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 10),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      ElevatedButton(
-                        onPressed: isRunning ? _stopTimer : _startTimer,
-                        child: Text(isRunning ? 'Pause' : 'Start'),
-                      ),
-                      SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: _resetTimer,
-                        child: Text('Reset'),
-                      ),
-                      SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: () => _showTimerSettingsDialog(context),
-                        child: Text('Set'),
-                      ),
+                      _buildFocusStatCard("Today", _formatFocusTime(todayFocusedMinutes)),
+                      _buildFocusStatCard("This Week", _formatFocusTime(weekFocusedMinutes)),
+                      _buildFocusStatCard("Total", _formatFocusTime(totalFocusedMinutes)),
                     ],
                   ),
-                  LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.grey[300],
+                  SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _tabController.animateTo(4); // Navigate to timer tab
+                    },
+                    icon: Icon(Icons.timer),
+                    label: Text('Start Focusing'),
                   ),
                 ],
               ),
@@ -315,10 +219,10 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
             // View Tabs
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: theme.cardColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: theme.shadowColor.withOpacity(0.1),
                     spreadRadius: 1,
                     blurRadius: 1,
                   ),
@@ -326,6 +230,8 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
               ),
               child: TabBar(
                 controller: _tabController,
+                labelColor: theme.primaryColor,
+                unselectedLabelColor: theme.unselectedWidgetColor,
                 tabs: const [
                   Tab(
                     icon: Icon(Icons.home),
@@ -342,6 +248,10 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
                   Tab(
                     icon: Icon(Icons.dashboard),
                     text: 'Trello',
+                  ),
+                  Tab(
+                    icon: Icon(Icons.timer),
+                    text: 'Timer',
                   ),
                 ],
               ),
@@ -459,6 +369,17 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
                   
                   // Trello Tab (pointing to Planner)
                   PlannerPage(),
+                  
+                  // New Timer Tab
+                  TimerPage(onSessionComplete: (duration) {
+                    // Update focus statistics when a session completes
+                    setState(() {
+                      final minutes = duration ~/ 60;
+                      todayFocusedMinutes += minutes;
+                      weekFocusedMinutes += minutes;
+                      totalFocusedMinutes += minutes;
+                    });
+                  }),
                 ],
               ),
             ),
@@ -469,10 +390,42 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => AddTaskPage(onAddTask: (TaskModel ) {  },)),
+            MaterialPageRoute(
+              builder: (context) => AddTaskPage(
+                onAddTask: (TaskModel task) {
+                  // Handle the new task here
+                },
+              ),
+            ),
           );
         },
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildFocusStatCard(String title, String value) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -508,8 +461,8 @@ class _HomePageState extends ConsumerState with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
-    _timer?.cancel();
     _tabController.dispose();
+    database.close(); // Close the database connection
     super.dispose();
   }
 }

@@ -7,6 +7,7 @@ import 'package:path/path.dart';
 import '../services/focus_mode_service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/focus_mode_provider.dart';
+import 'dart:io' show Platform;
 
 class TimerPage extends ConsumerStatefulWidget {
   final Function(int duration) onSessionComplete;
@@ -47,12 +48,37 @@ class _TimerPageState extends ConsumerState<TimerPage> {
   }
 
   Future<void> initializeNotifications() async {
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-    );
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    if (Platform.isLinux) {
+      // Linux specific initialization
+      const LinuxInitializationSettings linuxInitializationSettings =
+          LinuxInitializationSettings(
+        defaultActionName: 'Open notification',
+        defaultIcon: null,
+      );
+
+      const InitializationSettings initializationSettings =
+          InitializationSettings(
+        linux: linuxInitializationSettings,
+      );
+
+      await flutterLocalNotificationsPlugin.initialize(
+        initializationSettings,
+      );
+    } else if (Platform.isAndroid) {
+      // Android specific initialization
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+
+      const InitializationSettings initializationSettings =
+          InitializationSettings(
+        android: initializationSettingsAndroid,
+      );
+
+      await flutterLocalNotificationsPlugin.initialize(
+        initializationSettings,
+      );
+    }
+    // Add other platform specific initializations as needed
   }
   
   Future<void> loadSessionHistory() async {

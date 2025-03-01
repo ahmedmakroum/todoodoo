@@ -5,6 +5,8 @@ import 'package:path/path.dart';
 import 'dart:io' show Platform;
 import '../models/task_model.dart';
 import '../models/label_model.dart';
+import '../models/vision_model.dart';
+import '../models/project_model.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -34,7 +36,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE Tasks (
@@ -66,6 +68,24 @@ class DatabaseService {
         ''');
 
         await db.execute('''
+          CREATE TABLE Projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            color TEXT
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE Visions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content TEXT NOT NULL,
+            is_completed INTEGER DEFAULT 0,
+            target_date TEXT NOT NULL,
+            type TEXT NOT NULL
+          )
+        ''');
+
+        await db.execute('''
           CREATE TABLE FocusSessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             start_time TEXT NOT NULL,
@@ -76,22 +96,26 @@ class DatabaseService {
         ''');
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
-        if (oldVersion < 3) {
+        if (oldVersion < 4) {
+          // Create Visions table if it doesn't exist
           await db.execute('''
-            CREATE TABLE Labels (
+            CREATE TABLE IF NOT EXISTS Visions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              content TEXT NOT NULL,
+              is_completed INTEGER DEFAULT 0,
+              target_date TEXT NOT NULL,
+              type TEXT NOT NULL
+            )
+          ''');
+        }
+        
+        if (oldVersion < 5) {
+          // Create Projects table if it doesn't exist
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS Projects (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               name TEXT NOT NULL,
               color TEXT
-            )
-          ''');
-
-          await db.execute('''
-            CREATE TABLE TaskLabels (
-              task_id INTEGER,
-              label_id INTEGER,
-              PRIMARY KEY (task_id, label_id),
-              FOREIGN KEY (task_id) REFERENCES Tasks (id) ON DELETE CASCADE,
-              FOREIGN KEY (label_id) REFERENCES Labels (id) ON DELETE CASCADE
             )
           ''');
         }
@@ -172,5 +196,65 @@ class DatabaseService {
       WHERE tl.task_id = ?
     ''', [taskId]);
     return List.generate(maps.length, (i) => LabelModel.fromMap(maps[i]));
+  }
+
+  Future<int> insertVision(Vision vision) async {
+    final db = await database;
+    return await db.insert('Visions', vision.toMap());
+  }
+
+  Future<List<Vision>> getVisions(String type, DateTime targetDate) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'Visions',
+      where: 'type = ? AND target_date = ?',
+      whereArgs: [type, targetDate.toIso8601String()],
+    );
+    return List.generate(maps.length, (i) => Vision.fromMap(maps[i]));
+  }
+
+  Future<int> updateVision(Vision vision) async {
+    final db = await database;
+    return await db.update(
+      'Visions',
+      vision.toMap(),
+      where: 'id = ?',
+      whereArgs: [vision.id],
+    );
+  }
+
+  Future<int> deleteVision(int id) async {
+    final db = await database;
+    return await db.delete(
+      'Visions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> insertProject(ProjectModel project) async {
+    final db = await database;
+    return await db.insert('Projects', project.toMap());
+  }
+
+  Future<List<ProjectModel>> getProjects() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('Projects');
+    return List.generate(maps.length, (i) => ProjectModel.fromMap(maps[i]));
+  }
+
+  Future<int> updateProject(ProjectModel project) async {
+    final db = await database;
+    return await db.update(
+      'Projects',
+      project.toMap(),
+      where: 'id = ?',
+      whereArgs: [project.id],
+    );
+  }
+
+  Future<int> deleteProject(int id) async {
+    final db = await database;
+    return await db.delete('Projects', where: 'id = ?', whereArgs: [id]);
   }
 }

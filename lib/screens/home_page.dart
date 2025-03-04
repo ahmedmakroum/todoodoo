@@ -9,11 +9,12 @@ import 'package:todoodoo/screens/settings_page.dart';
 import 'package:todoodoo/screens/todo_page.dart';
 import 'package:todoodoo/screens/calendar_page.dart';
 import 'package:todoodoo/screens/labels_page.dart';
-import 'package:todoodoo/screens/stats_page.dart';
+import 'package:todoodoo/screens/daily_stats_page.dart';
 import 'package:todoodoo/screens/projects_page.dart';
 import 'package:todoodoo/screens/timer_page.dart';
 import 'package:todoodoo/screens/workout_planner_page.dart';
 import 'package:todoodoo/screens/calorie_counter_page.dart';
+import 'package:todoodoo/screens/daily_stats_page.dart';
 import '../providers/theme_provider.dart';
 import 'board_planner_page.dart';
 import '../models/task_model.dart';
@@ -127,10 +128,10 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
             Tab(icon: Icon(Icons.view_kanban), text: 'Board'),
             Tab(icon: Icon(Icons.folder), text: 'Projects'),
             Tab(icon: Icon(Icons.label), text: 'Labels'),
-            Tab(icon: Icon(Icons.bar_chart), text: 'Stats'),
             Tab(icon: Icon(Icons.timer), text: 'Timer'),
             Tab(icon: Icon(Icons.fitness_center), text: 'Workout'),
             Tab(icon: Icon(Icons.restaurant_menu), text: 'Calories'),
+            Tab(icon: Icon(Icons.analytics), text: 'Daily Stats'),
           ],
         ),
       ),
@@ -142,7 +143,6 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
           const BoardPlannerPage(),
           const ProjectsPage(),
           const LabelsPage(),
-          const StatsPage(),
           TimerPage(onSessionComplete: (duration) async {
             try {
               final session = FocusSession(
@@ -159,6 +159,7 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
           }),
           const WorkoutPlannerPage(),
           const CalorieCounterPage(),
+          const DailyStatsPage(),
         ],
       ),
       floatingActionButton: FloatingActionButton(

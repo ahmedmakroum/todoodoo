@@ -93,9 +93,11 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
           if (index != null)
             TextButton(
               onPressed: () {
-                setState(() {
-                  _exercises.removeAt(index);
-                });
+                if (index < _exercises.length) {
+                  setState(() {
+                    _exercises.removeAt(index);
+                  });
+                }
                 Navigator.pop(context);
               },
               style: TextButton.styleFrom(
@@ -115,7 +117,7 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
                 );
 
                 setState(() {
-                  if (index != null) {
+                  if (index != null && index < _exercises.length) {
                     _exercises[index] = exercise;
                   } else {
                     _exercises.add(exercise);

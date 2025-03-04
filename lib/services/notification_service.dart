@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io' show Platform;
 import '../models/task_model.dart';
+import '../models/daily_stats_model.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 
@@ -111,5 +112,36 @@ class NotificationService {
     await flutterLocalNotificationsPlugin.cancel(taskId); // Main deadline
     await flutterLocalNotificationsPlugin.cancel(taskId + 10000); // Reminder
     await flutterLocalNotificationsPlugin.cancel(taskId + 20000); // Recurring
+  }
+
+  Future<void> showDailyResetNotification(DailyStats stats) async {
+    if (Platform.isLinux) return;
+
+    final androidNotificationDetails = AndroidNotificationDetails(
+      'daily_stats',
+      'Daily Statistics',
+      channelDescription: 'Daily activity summary notifications',
+      importance: Importance.high,
+      priority: Priority.high,
+      styleInformation: BigTextStyleInformation(
+        'Yesterday\'s achievements:\n'
+        '• ${stats.tasksDone} tasks completed\n'
+        '• ${stats.focusMinutes} minutes focused\n'
+        '• ${stats.workoutsCompleted} workouts done\n'
+        '• ${stats.caloriesConsumed} calories consumed\n'
+        '• ${stats.caloriesBurned} calories burned',
+      ),
+    );
+
+    final notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      0, // Use a fixed ID for daily stats
+      'Daily Summary',
+      'Tap to view your achievements from yesterday',
+      notificationDetails,
+    );
   }
 }

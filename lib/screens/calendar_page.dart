@@ -27,6 +27,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     super.initState();
     _titleController = TextEditingController();
     _descriptionController = TextEditingController();
+    _selectedDay = _focusedDay;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(calendarProvider.notifier).loadEventsForDay(_focusedDay);
+    });
   }
 
   @override

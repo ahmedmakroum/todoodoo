@@ -3,6 +3,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'dart:io' show Platform;
+import '../models/daily_stats_model.dart';
+import '../services/notification_service.dart';
 import '../models/task_model.dart';
 import '../models/label_model.dart';
 import '../models/vision_model.dart';
@@ -10,6 +12,7 @@ import '../models/project_model.dart';
 import '../models/board_task_model.dart';
 import '../models/calendar_event_model.dart';
 import '../models/workout_model.dart';
+import '../models/daily_stats_model.dart';
 import '../models/calorie_model.dart';
 
 class DatabaseService {
@@ -32,6 +35,108 @@ class DatabaseService {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
+    // Schedule daily reset
+    _scheduleDailyReset();
+  }
+
+  Future<void> _scheduleDailyReset() async {
+    // Calculate time until next midnight
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final timeUntilMidnight = tomorrow.difference(now);
+
+    // Schedule the reset
+    Future.delayed(timeUntilMidnight, () async {
+      await _performDailyReset();
+      _scheduleDailyReset(); // Schedule next reset
+    });
+  }
+
+  Future<void> _performDailyReset() async {
+    final db = await database;
+    final now = DateTime.now();
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
+
+    // Save yesterday's stats before reset
+    final stats = await _collectDailyStats(yesterday);
+    await db.insert('DailyStats', stats.toMap());
+
+    // Delete non-repeating tasks that are completed
+    await db.delete(
+      'Tasks',
+      where: 'status = ? AND repeats = 0',
+      whereArgs: ['completed'],
+    );
+
+    // Reset repeating tasks
+    await db.update(
+      'Tasks',
+      {'status': 'pending'},
+      where: 'repeats = 1',
+    );
+
+    // Clear today's calorie entries
+    await db.delete('CalorieEntries');
+
+    // Notify about the reset
+    if (!Platform.isLinux) {
+      final notificationService = NotificationService();
+      await notificationService.showDailyResetNotification(stats);
+    }
+  }
+
+  Future<DailyStats> _collectDailyStats(DateTime date) async {
+    final db = await database;
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    // Count completed tasks
+    final tasksResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM Tasks WHERE status = ? AND date(due_date) >= date(?) AND date(due_date) < date(?)',
+      ['completed', startOfDay.toIso8601String(), endOfDay.toIso8601String()],
+    );
+    final tasksDone = Sqflite.firstIntValue(tasksResult) ?? 0;
+
+    // Sum focus minutes
+    final focusResult = await db.rawQuery(
+      'SELECT SUM(duration_seconds) as total FROM FocusSessions WHERE datetime(start_time) BETWEEN ? AND ?',
+      [startOfDay.toIso8601String(), endOfDay.toIso8601String()],
+    );
+    final focusSeconds = Sqflite.firstIntValue(focusResult) ?? 0;
+
+    // Count completed workouts
+    final workoutsResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM WorkoutPlans WHERE is_completed = 1 AND datetime(completion_date) BETWEEN ? AND ?',
+      [startOfDay.toIso8601String(), endOfDay.toIso8601String()],
+    );
+    final workoutsCompleted = Sqflite.firstIntValue(workoutsResult) ?? 0;
+
+    // Sum calories
+    final caloriesResult = await db.rawQuery(
+      'SELECT SUM(calories) as total FROM CalorieEntries WHERE datetime(timestamp) BETWEEN ? AND ?',
+      [startOfDay.toIso8601String(), endOfDay.toIso8601String()],
+    );
+    final caloriesConsumed = Sqflite.firstIntValue(caloriesResult) ?? 0;
+
+    return DailyStats(
+      date: date,
+      tasksDone: tasksDone,
+      focusMinutes: focusSeconds ~/ 60,
+      workoutsCompleted: workoutsCompleted,
+      caloriesConsumed: caloriesConsumed,
+      caloriesBurned: 0, // TODO: Implement calorie burning tracking
+    );
+  }
+
+  Future<List<DailyStats>> getDailyStats({int limit = 7}) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'DailyStats',
+      orderBy: 'date DESC',
+      limit: limit,
+    );
+
+    return List.generate(maps.length, (i) => DailyStats.fromMap(maps[i]));
   }
 
   Future<Database> _initDatabase() async {
@@ -40,8 +145,32 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: (Database db, int version) async {
+        // Create DailyStats table
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS DailyStats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            tasks_done INTEGER NOT NULL DEFAULT 0,
+            focus_minutes INTEGER NOT NULL DEFAULT 0,
+            workouts_completed INTEGER NOT NULL DEFAULT 0,
+            calories_consumed INTEGER NOT NULL DEFAULT 0,
+            calories_burned INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+        // Create DailyStats table
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS DailyStats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            tasks_done INTEGER NOT NULL DEFAULT 0,
+            focus_minutes INTEGER NOT NULL DEFAULT 0,
+            workouts_completed INTEGER NOT NULL DEFAULT 0,
+            calories_consumed INTEGER NOT NULL DEFAULT 0,
+            calories_burned INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
         // Create Tasks table
         await db.execute('''
           CREATE TABLE IF NOT EXISTS Tasks (
@@ -133,6 +262,20 @@ class DatabaseService {
 
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        if (oldVersion < 11) {
+          // Create DailyStats table
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS DailyStats (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              date TEXT NOT NULL,
+              tasks_done INTEGER NOT NULL DEFAULT 0,
+              focus_minutes INTEGER NOT NULL DEFAULT 0,
+              workouts_completed INTEGER NOT NULL DEFAULT 0,
+              calories_consumed INTEGER NOT NULL DEFAULT 0,
+              calories_burned INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+        }
         if (oldVersion < 4) {
           // Create Visions table if it doesn't exist
           await db.execute('''

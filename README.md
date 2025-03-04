@@ -1,6 +1,6 @@
 # todoodoo
 
-A new Flutter project.
+My own to do app
 
 ## Getting Started
 

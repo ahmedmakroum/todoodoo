@@ -12,8 +12,10 @@ import 'package:todoodoo/screens/labels_page.dart';
 import 'package:todoodoo/screens/stats_page.dart';
 import 'package:todoodoo/screens/projects_page.dart';
 import 'package:todoodoo/screens/timer_page.dart';
+import 'package:todoodoo/screens/workout_planner_page.dart';
+import 'package:todoodoo/screens/calorie_counter_page.dart';
 import '../providers/theme_provider.dart';
-import 'planner_page.dart';
+import 'board_planner_page.dart';
 import '../models/task_model.dart';
 import '../models/focus_session_model.dart';
 import '../services/focus_mode_service.dart';
@@ -52,7 +54,7 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 9, vsync: this);
     _initializeApp();
   }
 
@@ -103,14 +105,9 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ToDoodoo'),
+        title: const Text('ToDoodoo', style: TextStyle(fontWeight: FontWeight.w500)),
+        centerTitle: true,
         actions: [
-          IconButton(
-            icon: Icon(themeMode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode),
-            onPressed: () {
-              ref.read(themeModeProvider.notifier).toggleTheme();
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -132,6 +129,8 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
             Tab(icon: Icon(Icons.label), text: 'Labels'),
             Tab(icon: Icon(Icons.bar_chart), text: 'Stats'),
             Tab(icon: Icon(Icons.timer), text: 'Timer'),
+            Tab(icon: Icon(Icons.fitness_center), text: 'Workout'),
+            Tab(icon: Icon(Icons.restaurant_menu), text: 'Calories'),
           ],
         ),
       ),
@@ -140,7 +139,7 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
         children: [
           const ToDoPage(),
           const CalendarPage(),
-          const PlannerPage(),
+          const BoardPlannerPage(),
           const ProjectsPage(),
           const LabelsPage(),
           const StatsPage(),
@@ -158,6 +157,8 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
               debugPrint('Error saving focus session: $e');
             }
           }),
+          const WorkoutPlannerPage(),
+          const CalorieCounterPage(),
         ],
       ),
       floatingActionButton: FloatingActionButton(

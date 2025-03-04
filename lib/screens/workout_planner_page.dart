@@ -90,21 +90,20 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          if (index != null)
-            TextButton(
-              onPressed: () {
-                if (index < _exercises.length) {
-                  setState(() {
-                    _exercises.removeAt(index);
-                  });
-                }
-                Navigator.pop(context);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: const Text('Delete'),
+          TextButton(
+            onPressed: () {
+              if (index != null && index < _exercises.length) {
+                setState(() {
+                  _exercises.removeAt(index);
+                });
+              }
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
             ),
+            child: const Text('Delete'),
+          ),
           FilledButton(
             onPressed: () {
               if (_formKey.currentState?.validate() ?? false) {
@@ -201,26 +200,103 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () async {
-                if (_nameController.text.isNotEmpty && _exercises.isNotEmpty) {
-                  final plan = WorkoutPlan(
-                    id: existingPlan?.id ?? 0,
-                    name: _nameController.text,
-                    dayOfWeek: _selectedDay,
-                    exercises: _exercises,
+            if (existingPlan != null)
+              TextButton(
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete Workout Plan'),
+                      content: Text('Are you sure you want to delete "${existingPlan.name}"?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
                   );
 
+                  if (confirmed == true) {
+                    try {
+                      await DatabaseService().deleteWorkoutPlan(existingPlan.id!);
+                      if (mounted) {
+                        Navigator.pop(context);
+                        setState(() {}); // Refresh the list
+                      }
+                    } catch (e) {
+                      debugPrint('Error deleting workout plan: $e');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error deleting workout plan: $e'),
+                          ),
+                        );
+                      }
+                    }
+                  }
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+                child: const Text('Delete'),
+              ),
+            FilledButton(
+              onPressed: () async {
+                if (_nameController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a plan name'),
+                    ),
+                  );
+                  return;
+                }
+
+                if (_exercises.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please add at least one exercise'),
+                    ),
+                  );
+                  return;
+                }
+
+                final plan = WorkoutPlan(
+                  id: existingPlan?.id ?? 0,
+                  name: _nameController.text,
+                  dayOfWeek: _selectedDay,
+                  exercises: _exercises,
+                );
+
+                try {
                   if (existingPlan != null) {
                     await DatabaseService().updateWorkoutPlan(plan);
                   } else {
                     await DatabaseService().insertWorkoutPlan(plan);
                   }
-                  setState(() {}); // Refresh the list
-                  if (mounted) Navigator.pop(context);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    setState(() {}); // Refresh the list
+                  }
+                } catch (e) {
+                  debugPrint('Error saving workout plan: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error saving workout plan: $e'),
+                      ),
+                    );
+                  }
                 }
               },
-              child: const Text('Save'),
+              child: Text(existingPlan != null ? 'Update' : 'Save'),
             ),
           ],
         ),
@@ -313,37 +389,61 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
                     ),
                     children: [
                       ...plan.exercises.asMap().entries.map(
-                        (entry) => Dismissible(
-                          key: Key('exercise_${plan.id}_${entry.key}'),
-                          background: Container(
-                            color: Colors.red,
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 16),
-                            child: const Icon(Icons.delete, color: Colors.white),
-                          ),
-                          direction: DismissDirection.endToStart,
-                          onDismissed: (direction) async {
-                            plan.exercises.removeAt(entry.key);
-                            await DatabaseService().updateWorkoutPlan(plan);
-                            setState(() {});
-                          },
-                          child: CheckboxListTile(
-                            title: Text(entry.value.name),
-                            subtitle: Text(
-                                '${entry.value.sets} sets × ${entry.value.reps} reps @ ${entry.value.weight}kg'),
-                            value: entry.value.isCompleted,
-                            secondary: IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _showExerciseForm(
-                                exercise: entry.value,
-                                index: entry.key,
+                        (entry) => ListTile(
+                          title: Text(entry.value.name),
+                          subtitle: Text(
+                              '${entry.value.sets} sets × ${entry.value.reps} reps @ ${entry.value.weight}kg'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () => _showExerciseForm(
+                                  exercise: entry.value,
+                                  index: entry.key,
+                                ),
                               ),
-                            ),
-                            onChanged: (value) async {
-                              entry.value.isCompleted = value ?? false;
-                              await DatabaseService().updateWorkoutPlan(plan);
-                              setState(() {});
-                            },
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Delete Exercise'),
+                                      content: Text('Are you sure you want to delete "${entry.value.name}"?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: Colors.red,
+                                          ),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirmed == true) {
+                                    setState(() {
+                                      plan.exercises.removeAt(entry.key);
+                                    });
+                                    await DatabaseService().updateWorkoutPlan(plan);
+                                  }
+                                },
+                              ),
+                              Checkbox(
+                                value: entry.value.isCompleted,
+                                onChanged: (value) async {
+                                  entry.value.isCompleted = value ?? false;
+                                  await DatabaseService().updateWorkoutPlan(plan);
+                                  setState(() {});
+                                },
+                              ),
+                            ],
                           ),
                         ),
                       ),

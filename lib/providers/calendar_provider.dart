@@ -24,12 +24,12 @@ class CalendarNotifier extends StateNotifier<List<CalendarEvent>> {
   Future<void> addEvent(CalendarEvent event) async {
     final id = await _db.insertCalendarEvent(event);
     event.id = id;
-    await loadEventsForDay(event.startTime ?? DateTime.now());
+    await loadEventsForDay(DateTime.now());
   }
 
   Future<void> updateEvent(CalendarEvent event) async {
     await _db.updateCalendarEvent(event);
-    await loadEventsForDay(event.startTime ?? DateTime.now());
+    await loadEventsForDay(DateTime.now());
   }
 
   Future<void> deleteEvent(int id) async {
@@ -41,7 +41,10 @@ class CalendarNotifier extends StateNotifier<List<CalendarEvent>> {
 
   List<CalendarEvent> getEventsForDay(DateTime day) {
     return state.where((event) {
-      if (event.startTime == null) return false;
+      if (event.startTime == null) {
+        // For events without time, associate them with the selected day
+        return true;
+      }
       return event.startTime!.year == day.year &&
              event.startTime!.month == day.month &&
              event.startTime!.day == day.day;

@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 import '../services/focus_mode_service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/focus_mode_provider.dart';
+import 'package:intl/intl.dart';
 import 'dart:io' show Platform;
 
 class TimerPage extends ConsumerStatefulWidget {
@@ -82,18 +82,21 @@ class _TimerPageState extends ConsumerState<TimerPage> {
   }
   
   Future<void> loadSessionHistory() async {
-    // In a real app, this would load previous sessions from a database
-    // For example:
-    // final db = await DatabaseService.instance.database;
-    // sessions = await db.query('FocusSessions', orderBy: 'start_time DESC', limit: 10);
-    
-    // Placeholder data for now
-    setState(() {
-      sessions = [
-        {'date': 'Today', 'duration': 1500},
-        {'date': 'Yesterday', 'duration': 3000},
-      ];
-    });
+    try {
+      final db = await FocusSessionService().database;
+      final List<Map<String, dynamic>> results = await db.query(
+        'FocusSessions',
+        orderBy: 'start_time DESC',
+        where: 'start_time >= ?',
+        whereArgs: [DateTime.now().subtract(const Duration(hours: 24)).toIso8601String()],
+      );
+      
+      setState(() {
+        sessions = results;
+      });
+    } catch (e) {
+      debugPrint('Error loading focus sessions: $e');
+    }
   }
 
   void _startTimer() {
@@ -151,33 +154,31 @@ class _TimerPageState extends ConsumerState<TimerPage> {
     });
   }
   
-  void _completeSession() {
+  void _completeSession() async {
     _stopTimer();
     
     final sessionDuration = totalWorkTime - remainingTime + totalSessionTime;
     
-    // Save session to database (in a real app)
-    // For example:
-    // final db = await DatabaseService.instance.database;
-    // await db.insert('FocusSessions', {
-    //   'start_time': sessionStartTime?.toIso8601String(),
-    //   'end_time': DateTime.now().toIso8601String(),
-    //   'duration_seconds': sessionDuration,
-    // });
-    
-    // Call the callback to update stats on HomePage
-    widget.onSessionComplete(sessionDuration);
-    
-    // Add to local list for display
-    setState(() {
-      sessions.insert(0, {
-        'date': 'Just now',
-        'duration': sessionDuration,
+    try {
+      // Save session to database
+      final db = await FocusSessionService().database;
+      await db.insert('FocusSessions', {
+        'start_time': sessionStartTime?.toIso8601String(),
+        'end_time': DateTime.now().toIso8601String(),
+        'duration_seconds': sessionDuration,
       });
-    });
-    
-    _showTimeUpDialog(context as BuildContext);
-    _resetTimer();
+      
+      // Reload sessions to show the new one
+      await loadSessionHistory();
+      
+      // Call the callback to update stats on HomePage
+      widget.onSessionComplete(sessionDuration);
+      
+      _showTimeUpDialog(context as BuildContext);
+      _resetTimer();
+    } catch (e) {
+      debugPrint('Error saving focus session: $e');
+    }
   }
 
   void _showTimeUpDialog(BuildContext context) {
@@ -444,11 +445,12 @@ class _TimerPageState extends ConsumerState<TimerPage> {
                                   itemCount: sessions.length,
                                   itemBuilder: (context, index) {
                                     final session = sessions[index];
+                                    final startTime = DateTime.parse(session['start_time'] as String);
+                                    final duration = session['duration_seconds'] as int;
                                     return ListTile(
                                       leading: Icon(Icons.timer),
-                                      title: Text('${session['date']}'),
-                                      subtitle: Text(
-                                          'Duration: ${_formatDuration(session['duration'])}'),
+                                      title: Text(DateFormat('MMM d, h:mm a').format(startTime)),
+                                      subtitle: Text('Duration: ${_formatDuration(duration)}'),
                                       trailing: Icon(Icons.check_circle, color: Colors.green),
                                     );
                                   },

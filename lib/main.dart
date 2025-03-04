@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'screens/loading_screen.dart';
 import 'providers/theme_provider.dart';
@@ -17,8 +18,8 @@ class MyApp extends ConsumerWidget {
     return MaterialApp(
       title: 'TodoDooo',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.light(),
-      darkTheme: ThemeData.dark(),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: const LoadingScreen(),
     );

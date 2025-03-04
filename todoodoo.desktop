@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=ToDoodoo
+Comment=A comprehensive personal productivity and wellness tracking app
+Exec=/usr/local/bin/todoodoo
+Icon=/usr/local/share/icons/todoodoo/icon.png
+Terminal=false
+Categories=Utility;Productivity;

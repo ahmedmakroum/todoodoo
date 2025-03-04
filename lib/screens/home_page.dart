@@ -106,20 +106,51 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ToDoodoo', style: TextStyle(fontWeight: FontWeight.w500)),
+        title: ShaderMask(
+          shaderCallback: (bounds) => LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.primary,
+              Theme.of(context).colorScheme.secondary,
+              Theme.of(context).colorScheme.tertiary,
+            ],
+          ).createShader(bounds),
+          child: const Text(
+            'ToDoodoo',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
         centerTitle: true,
+        elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.settings,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsPage()),
+                );
+              },
+            ),
           ),
         ],
         bottom: TabBar(
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+          indicatorSize: TabBarIndicatorSize.label,
+          dividerColor: Colors.transparent,
           controller: _tabController,
           isScrollable: true,
           tabs: const [
@@ -162,7 +193,7 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
           const DailyStatsPage(),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           await Navigator.push(
             context,
@@ -186,7 +217,10 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
             ),
           );
         },
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        icon: const Icon(Icons.add),
+        label: const Text('Add Task'),
+        elevation: 4,
       ),
     );
   }

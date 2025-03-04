@@ -1,0 +1,16 @@
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/todoodoo
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/icudtl.dat
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/lib/libflutter_linux_gtk.so
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/lib/libisar_flutter_libs_plugin.so
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/lib/libisar.so
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/NativeAssetsManifest.json
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/AssetManifest.bin
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/assets/app_icon.png
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/kernel_blob.bin
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/FontManifest.json
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/AssetManifest.json
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/version.json
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/NOTICES.Z
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/shaders/ink_sparkle.frag
+/home/arx/Projects/todoodoo/todoodoo/build/linux/x64/debug/bundle/data/flutter_assets/fonts/MaterialIcons-Regular.otf

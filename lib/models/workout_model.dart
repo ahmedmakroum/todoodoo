@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 class WorkoutExercise {
   int id;
   String name;

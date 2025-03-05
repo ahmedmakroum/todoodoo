@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 import 'package:todoodoo/screens/add_task_page.dart';
 import 'package:todoodoo/screens/settings_page.dart';
 import 'package:todoodoo/screens/todo_page.dart';
@@ -14,7 +13,6 @@ import 'package:todoodoo/screens/projects_page.dart';
 import 'package:todoodoo/screens/timer_page.dart';
 import 'package:todoodoo/screens/workout_planner_page.dart';
 import 'package:todoodoo/screens/calorie_counter_page.dart';
-import 'package:todoodoo/screens/daily_stats_page.dart';
 import '../providers/theme_provider.dart';
 import 'board_planner_page.dart';
 import '../models/task_model.dart';
@@ -89,20 +87,10 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
     });
   }
   
-  String _formatFocusTime(int minutes) {
-    final hours = minutes ~/ 60;
-    final mins = minutes % 60;
-    
-    if (hours > 0) {
-      return '$hours h ${mins > 0 ? '$mins min' : ''}';
-    } else {
-      return '$mins min';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeModeProvider);
+    ref.watch(themeModeProvider);
     
     return Scaffold(
       appBar: AppBar(

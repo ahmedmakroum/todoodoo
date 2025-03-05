@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
@@ -12,7 +11,6 @@ import '../models/project_model.dart';
 import '../models/board_task_model.dart';
 import '../models/calendar_event_model.dart';
 import '../models/workout_model.dart';
-import '../models/daily_stats_model.dart';
 import '../models/calorie_model.dart';
 
 class DatabaseService {
@@ -145,20 +143,8 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 13, // Ensure the version number is correct
       onCreate: (Database db, int version) async {
-        // Create DailyStats table
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS DailyStats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            tasks_done INTEGER NOT NULL DEFAULT 0,
-            focus_minutes INTEGER NOT NULL DEFAULT 0,
-            workouts_completed INTEGER NOT NULL DEFAULT 0,
-            calories_consumed INTEGER NOT NULL DEFAULT 0,
-            calories_burned INTEGER NOT NULL DEFAULT 0
-          )
-        ''');
         // Create DailyStats table
         await db.execute('''
           CREATE TABLE IF NOT EXISTS DailyStats (
@@ -260,6 +246,44 @@ class DatabaseService {
           )
         ''');
 
+        // Create workout_plans table
+        await db.execute('''
+          CREATE TABLE workout_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            day_of_week TEXT,
+            is_completed INTEGER
+          )
+        ''');
+
+        // Create workout_exercises table
+        await db.execute('''
+          CREATE TABLE workout_exercises (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plan_id INTEGER,
+            name TEXT,
+            sets INTEGER,
+            reps INTEGER,
+            weight REAL,
+            notes TEXT,
+            is_completed INTEGER,
+            FOREIGN KEY(plan_id) REFERENCES workout_plans(id) ON DELETE CASCADE
+          )
+        ''');
+
+        // Create CalorieEntries table
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS CalorieEntries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            food_name TEXT NOT NULL,
+            calories INTEGER NOT NULL,
+            serving_size REAL NOT NULL,
+            serving_unit TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            meal_type TEXT NOT NULL,
+            notes TEXT
+          )
+        ''');
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
         if (oldVersion < 11) {
@@ -288,7 +312,7 @@ class DatabaseService {
             )
           ''');
         }
-        
+
         if (oldVersion < 5) {
           // Create Projects table if it doesn't exist
           await db.execute('''
@@ -331,12 +355,14 @@ class DatabaseService {
 
         if (oldVersion < 8) {
           // Add is_completed column to BoardTasks table
-          await db.execute('ALTER TABLE BoardTasks ADD COLUMN is_completed INTEGER DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE BoardTasks ADD COLUMN is_completed INTEGER DEFAULT 0');
         }
 
         if (oldVersion < 9) {
           // Add is_completed column to CalendarEvents table
-          await db.execute('ALTER TABLE CalendarEvents ADD COLUMN is_completed INTEGER DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE CalendarEvents ADD COLUMN is_completed INTEGER DEFAULT 0');
         }
 
         if (oldVersion < 10) {
@@ -435,6 +461,49 @@ class DatabaseService {
             )
           ''');
         }
+
+        if (oldVersion < 1) {
+          // Create workout_plans table
+          await db.execute('''
+            CREATE TABLE workout_plans (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT,
+              day_of_week TEXT,
+              is_completed INTEGER
+            )
+          ''');
+
+          // Create workout_exercises table
+          await db.execute('''
+            CREATE TABLE workout_exercises (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              plan_id INTEGER,
+              name TEXT,
+              sets INTEGER,
+              reps INTEGER,
+              weight REAL,
+              notes TEXT,
+              is_completed INTEGER,
+              FOREIGN KEY(plan_id) REFERENCES workout_plans(id) ON DELETE CASCADE
+            )
+          ''');
+        }
+
+        if (oldVersion < 13) {
+          // Create CalorieEntries table
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS CalorieEntries (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              food_name TEXT NOT NULL,
+              calories INTEGER NOT NULL,
+              serving_size REAL NOT NULL,
+              serving_unit TEXT NOT NULL,
+              timestamp TEXT NOT NULL,
+              meal_type TEXT NOT NULL,
+              notes TEXT
+            )
+          ''');
+        }
       },
     );
   }
@@ -447,9 +516,7 @@ class DatabaseService {
   Future<List<TaskModel>> getTasks() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('Tasks');
-    return Future.wait(
-      maps.map((map) => TaskModel.fromMap(map, this))
-    );
+    return Future.wait(maps.map((map) => TaskModel.fromMap(map, this)));
   }
 
   Future<int> updateTask(TaskModel task) async {
@@ -534,7 +601,8 @@ class DatabaseService {
 
   Future<List<BoardTask>> getBoardTasks() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('BoardTasks', orderBy: 'position ASC');
+    final List<Map<String, dynamic>> maps =
+        await db.query('BoardTasks', orderBy: 'position ASC');
     return List.generate(maps.length, (i) => BoardTask.fromMap(maps[i]));
   }
 
@@ -559,39 +627,26 @@ class DatabaseService {
 
   Future<int> insertCalendarEvent(CalendarEvent event) async {
     final db = await database;
-    // Get today's date if no start time is provided
-    final DateTime now = DateTime.now();
-    final DateTime eventDate = event.startTime != null
-        ? DateTime(event.startTime!.year, event.startTime!.month, event.startTime!.day)
-        : DateTime(now.year, now.month, now.day);
+    
+    // Ensure we're using the date from the event
+    final eventDate = event.date;
     
     return await db.insert('CalendarEvents', {
       'title': event.title,
       'description': event.description,
       'start_time': event.startTime?.toIso8601String(),
       'end_time': event.endTime?.toIso8601String(),
-      'date': eventDate.toIso8601String(),
+      'date': eventDate.toIso8601String(), // Use the date directly from the event
       'is_completed': event.isCompleted ? 1 : 0,
     });
   }
 
-  Future<List<Map<String, dynamic>>> getCalendarEventsForDay(DateTime date) async {
-    final db = await database;
-    return await db.query(
-      'CalendarEvents',
-      where: 'date = ?',
-      whereArgs: [DateTime(date.year, date.month, date.day).toIso8601String()],
-    );
-  }
-
   Future<int> updateCalendarEvent(CalendarEvent event) async {
     final db = await database;
-    // Get today's date if no start time is provided
-    final DateTime now = DateTime.now();
-    final DateTime eventDate = event.startTime != null
-        ? DateTime(event.startTime!.year, event.startTime!.month, event.startTime!.day)
-        : DateTime(now.year, now.month, now.day);
-
+    
+    // Ensure we're using the date from the event
+    final eventDate = event.date;
+    
     return await db.update(
       'CalendarEvents',
       {
@@ -599,11 +654,21 @@ class DatabaseService {
         'description': event.description,
         'start_time': event.startTime?.toIso8601String(),
         'end_time': event.endTime?.toIso8601String(),
-        'date': eventDate.toIso8601String(),
+        'date': eventDate.toIso8601String(), // Use the date directly from the event
         'is_completed': event.isCompleted ? 1 : 0,
       },
       where: 'id = ?',
       whereArgs: [event.id],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getCalendarEventsForDay(
+      DateTime date) async {
+    final db = await database;
+    return await db.query(
+      'CalendarEvents',
+      where: 'date = ?',
+      whereArgs: [DateTime(date.year, date.month, date.day).toIso8601String()],
     );
   }
 
@@ -614,6 +679,11 @@ class DatabaseService {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<List<Map<String, dynamic>>> getAllCalendarEvents() async {
+    final db = await database;
+    return await db.query('CalendarEvents');
   }
 
   Future<int> insertVision(Vision vision) async {
@@ -644,72 +714,94 @@ class DatabaseService {
   // Workout Methods
   Future<int> insertWorkoutPlan(WorkoutPlan plan) async {
     final db = await database;
-    final planId = await db.insert('WorkoutPlans', plan.toMap());
-    
-    // Insert all exercises
+    final planId = await db.insert('workout_plans', plan.toMap());
     for (final exercise in plan.exercises) {
-      await db.insert('WorkoutExercises', {
+      exercise.id = await db.insert('workout_exercises', {
         ...exercise.toMap(),
         'plan_id': planId,
       });
     }
-    
     return planId;
   }
 
-  Future<List<WorkoutPlan>> getWorkoutPlans() async {
+  Future<void> deleteWorkoutExercise(int id) async {
     final db = await database;
-    final List<Map<String, dynamic>> planMaps = await db.query('WorkoutPlans');
-    
-    return Future.wait(planMaps.map((planMap) async {
-      final plan = WorkoutPlan.fromMap(planMap);
-      
-      // Get exercises for this plan
-      final List<Map<String, dynamic>> exerciseMaps = await db.query(
-        'WorkoutExercises',
-        where: 'plan_id = ?',
-        whereArgs: [plan.id],
-      );
-      
-      plan.exercises = exerciseMaps.map((e) => WorkoutExercise.fromMap(e)).toList();
-      return plan;
-    }));
+    await db.delete(
+      'workout_exercises',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
-  Future<int> updateWorkoutPlan(WorkoutPlan plan) async {
+  Future<void> updateWorkoutPlan(WorkoutPlan plan) async {
     final db = await database;
-    
-    // Update plan
     await db.update(
-      'WorkoutPlans',
+      'workout_plans',
       plan.toMap(),
       where: 'id = ?',
       whereArgs: [plan.id],
     );
-    
-    // Update exercises
+
+    // Get existing exercises from the database
+    final existingExercises = await db.query(
+      'workout_exercises',
+      where: 'plan_id = ?',
+      whereArgs: [plan.id],
+    );
+
+    // Convert existing exercises to a map for easy lookup
+    final existingExerciseMap = {
+      for (var exercise in existingExercises)
+        exercise['id']: WorkoutExercise.fromMap(exercise)
+    };
+
+    // Update or insert exercises
     for (final exercise in plan.exercises) {
-      if (exercise.id != 0) {
+      if (exercise.id != 0 && existingExerciseMap.containsKey(exercise.id)) {
         await db.update(
-          'WorkoutExercises',
+          'workout_exercises',
           exercise.toMap(),
           where: 'id = ?',
           whereArgs: [exercise.id],
         );
+        existingExerciseMap.remove(exercise.id);
       } else {
-        await db.insert('WorkoutExercises', {
+        exercise.id = await db.insert('workout_exercises', {
           ...exercise.toMap(),
           'plan_id': plan.id,
         });
       }
     }
-    
-    return plan.id;
+
+    // Delete exercises that are no longer in the plan
+    for (final exerciseId in existingExerciseMap.keys) {
+      await deleteWorkoutExercise(exerciseId as int);
+    }
   }
 
   Future<void> deleteWorkoutPlan(int id) async {
     final db = await database;
-    await db.delete('WorkoutPlans', where: 'id = ?', whereArgs: [id]);
+    await db.delete(
+      'workout_plans',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<WorkoutPlan>> getWorkoutPlans() async {
+    final db = await database;
+    final planMaps = await db.query('workout_plans');
+    final plans = planMaps.map((map) => WorkoutPlan.fromMap(map)).toList();
+    for (final plan in plans) {
+      final exerciseMaps = await db.query(
+        'workout_exercises',
+        where: 'plan_id = ?',
+        whereArgs: [plan.id],
+      );
+      plan.exercises =
+          exerciseMaps.map((map) => WorkoutExercise.fromMap(map)).toList();
+    }
+    return plans;
   }
 
   // Calorie Methods
@@ -755,22 +847,20 @@ class DatabaseService {
     final db = await database;
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
-    
+
     final List<Map<String, dynamic>> maps = await db.query(
       'CalorieEntries',
       where: 'timestamp BETWEEN ? AND ?',
       whereArgs: [startOfDay.toIso8601String(), endOfDay.toIso8601String()],
     );
-    
+
     return List.generate(maps.length, (i) => CalorieEntry.fromMap(maps[i]));
   }
-
-
 
   Future<void> _updateDailyCalorieSummary(DateTime date) async {
     final db = await database;
     final entries = await getCalorieEntriesForDay(date);
-    
+
     final totalCalories = entries.fold(0, (sum, entry) => sum + entry.calories);
     final mealTypeCalories = <String, int>{
       'breakfast': 0,
@@ -778,19 +868,19 @@ class DatabaseService {
       'dinner': 0,
       'snack': 0,
     };
-    
+
     for (final entry in entries) {
-      mealTypeCalories[entry.mealType] = 
+      mealTypeCalories[entry.mealType] =
           (mealTypeCalories[entry.mealType] ?? 0) + entry.calories;
     }
-    
+
     final summary = DailyCalorieSummary(
       date: DateTime(date.year, date.month, date.day),
       totalCalories: totalCalories,
       targetCalories: 2000, // Default target, could be made configurable
       mealTypeCalories: mealTypeCalories,
     );
-    
+
     await db.insert(
       'DailyCalorieSummaries',
       summary.toMap(),
@@ -805,7 +895,7 @@ class DatabaseService {
       where: 'date = ?',
       whereArgs: [DateTime(date.year, date.month, date.day).toIso8601String()],
     );
-    
+
     if (maps.isEmpty) return null;
     return DailyCalorieSummary.fromMap(maps.first);
   }

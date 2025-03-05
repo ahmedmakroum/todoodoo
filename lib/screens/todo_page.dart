@@ -35,17 +35,7 @@ class _ToDoPageState extends State<ToDoPage> {
     }
   }
 
-  Future<void> _addTask(TaskModel task) async {
-    final db = await _databaseService.database;
-    await db.insert('Tasks', task.toMap());
-    await _loadTasks();
-  }
 
-  Future<void> _updateTask(TaskModel task) async {
-    final db = await _databaseService.database;
-    await db.update('Tasks', task.toMap(), where: 'id = ?', whereArgs: [task.id]);
-    await _loadTasks();
-  }
 
   Future<void> _deleteTask(TaskModel task) async {
     try {

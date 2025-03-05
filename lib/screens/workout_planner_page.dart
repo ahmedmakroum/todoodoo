@@ -34,9 +34,12 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
 
   void _showExerciseForm({WorkoutExercise? exercise, int? index}) {
     final nameController = TextEditingController(text: exercise?.name);
-    final setsController = TextEditingController(text: exercise?.sets.toString());
-    final repsController = TextEditingController(text: exercise?.reps.toString());
-    final weightController = TextEditingController(text: exercise?.weight.toString());
+    final setsController =
+        TextEditingController(text: exercise?.sets.toString());
+    final repsController =
+        TextEditingController(text: exercise?.reps.toString());
+    final weightController =
+        TextEditingController(text: exercise?.weight.toString());
     final notesController = TextEditingController(text: exercise?.notes);
 
     showDialog(
@@ -90,20 +93,21 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
-            onPressed: () {
-              if (index != null && index < _exercises.length) {
-                setState(() {
-                  _exercises.removeAt(index);
-                });
-              }
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
+          if (exercise != null)
+            TextButton(
+              onPressed: () {
+                if (index != null && index < _exercises.length) {
+                  setState(() {
+                    _exercises.removeAt(index);
+                  });
+                }
+                Navigator.pop(context);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Delete'),
             ),
-            child: const Text('Delete'),
-          ),
           FilledButton(
             onPressed: () {
               if (_formKey.currentState?.validate() ?? false) {
@@ -112,7 +116,9 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
                   sets: int.parse(setsController.text),
                   reps: int.parse(repsController.text),
                   weight: double.parse(weightController.text),
-                  notes: notesController.text.isEmpty ? null : notesController.text,
+                  notes: notesController.text.isEmpty
+                      ? null
+                      : notesController.text,
                 );
 
                 setState(() {
@@ -182,8 +188,8 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
                             '${entry.value.sets} sets × ${entry.value.reps} reps @ ${entry.value.weight}kg'),
                         trailing: IconButton(
                           icon: const Icon(Icons.edit),
-                          onPressed: () =>
-                              _showExerciseForm(exercise: entry.value, index: entry.key),
+                          onPressed: () => _showExerciseForm(
+                              exercise: entry.value, index: entry.key),
                         ),
                       ),
                     ),
@@ -207,7 +213,8 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: const Text('Delete Workout Plan'),
-                      content: Text('Are you sure you want to delete "${existingPlan.name}"?'),
+                      content: Text(
+                          'Are you sure you want to delete "${existingPlan.name}"?'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),
@@ -226,7 +233,8 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
 
                   if (confirmed == true) {
                     try {
-                      await DatabaseService().deleteWorkoutPlan(existingPlan.id!);
+                      await DatabaseService()
+                          .deleteWorkoutPlan(existingPlan.id);
                       if (mounted) {
                         Navigator.pop(context);
                         setState(() {}); // Refresh the list
@@ -354,7 +362,8 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: const Text('Delete Workout Plan'),
-                      content: Text('Are you sure you want to delete "${plan.name}"?'),
+                      content: Text(
+                          'Are you sure you want to delete "${plan.name}"?'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),
@@ -370,10 +379,13 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
                 },
                 onDismissed: (direction) async {
                   await DatabaseService().deleteWorkoutPlan(plan.id);
-                  setState(() {});
+                  if (mounted) {
+                    setState(() {});
+                  }
                 },
                 child: Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: ExpansionTile(
                     title: Text(plan.name),
                     subtitle: Text(plan.dayOfWeek),
@@ -382,71 +394,80 @@ class _WorkoutPlannerPageState extends ConsumerState<WorkoutPlannerPage> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.edit),
-                          onPressed: () => _showWorkoutPlanForm(existingPlan: plan),
+                          onPressed: () =>
+                              _showWorkoutPlanForm(existingPlan: plan),
                         ),
                         const Icon(Icons.expand_more),
                       ],
                     ),
                     children: [
                       ...plan.exercises.asMap().entries.map(
-                        (entry) => ListTile(
-                          title: Text(entry.value.name),
-                          subtitle: Text(
-                              '${entry.value.sets} sets × ${entry.value.reps} reps @ ${entry.value.weight}kg'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () => _showExerciseForm(
-                                  exercise: entry.value,
-                                  index: entry.key,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () async {
-                                  final confirmed = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Delete Exercise'),
-                                      content: Text('Are you sure you want to delete "${entry.value.name}"?'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, false),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, true),
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: Colors.red,
-                                          ),
-                                          child: const Text('Delete'),
-                                        ),
-                                      ],
+                            (entry) => ListTile(
+                              title: Text(entry.value.name),
+                              subtitle: Text(
+                                  '${entry.value.sets} sets × ${entry.value.reps} reps @ ${entry.value.weight}kg'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    onPressed: () => _showExerciseForm(
+                                      exercise: entry.value,
+                                      index: entry.key,
                                     ),
-                                  );
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Delete Exercise'),
+                                          content: Text(
+                                              'Are you sure you want to delete "${entry.value.name}"?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, true),
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: Colors.red,
+                                              ),
+                                              child: const Text('Delete'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
 
-                                  if (confirmed == true) {
-                                    setState(() {
-                                      plan.exercises.removeAt(entry.key);
-                                    });
-                                    await DatabaseService().updateWorkoutPlan(plan);
-                                  }
-                                },
+                                      if (confirmed == true) {
+                                        setState(() {
+                                          plan.exercises.removeAt(entry.key);
+                                        });
+                                        await DatabaseService()
+                                            .updateWorkoutPlan(plan);
+                                      }
+                                    },
+                                  ),
+                                  Checkbox(
+                                    value: entry.value.isCompleted,
+                                    onChanged: (value) async {
+                                      entry.value.isCompleted = value ?? false;
+                                      await DatabaseService()
+                                          .updateWorkoutPlan(plan);
+                                      if (mounted) {
+                                        setState(() {});
+                                      }
+                                    },
+                                  ),
+                                ],
                               ),
-                              Checkbox(
-                                value: entry.value.isCompleted,
-                                onChanged: (value) async {
-                                  entry.value.isCompleted = value ?? false;
-                                  await DatabaseService().updateWorkoutPlan(plan);
-                                  setState(() {});
-                                },
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
                       ButtonBar(
                         children: [
                           TextButton.icon(

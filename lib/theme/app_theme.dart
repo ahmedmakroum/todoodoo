@@ -7,7 +7,6 @@ class AppTheme {
     const primaryColor = Color(0xFF7C4DFF);  // Vibrant purple
     const accentColor = Color(0xFF00E5FF);   // Bright cyan
     const tertiaryColor = Color(0xFFFFD740); // Warm yellow
-    const secondaryColor = Color(0xFF625B71);
     
     return ThemeData(
       useMaterial3: true,

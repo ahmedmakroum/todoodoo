@@ -1,11 +1,5 @@
-// At the top of focus_mode_service.dart
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../models/focus_session_model.dart';  // Ensure this path is correct
-import '../providers/theme_provider.dart';
-import '../providers/focus_mode_provider.dart';
+import '../models/focus_session_model.dart';  
 import 'package:sqflite/sqflite.dart';
 
 

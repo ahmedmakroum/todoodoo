@@ -6,6 +6,7 @@ class CalendarEvent {
   DateTime? endTime;
   String? color;
   bool isCompleted;
+  DateTime date; // Add this field
 
   CalendarEvent({
     this.id = 0,
@@ -15,6 +16,7 @@ class CalendarEvent {
     this.endTime,
     this.color,
     this.isCompleted = false,
+    required this.date, // Add this field
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +28,7 @@ class CalendarEvent {
       'end_time': endTime?.toIso8601String(),
       'color': color,
       'is_completed': isCompleted ? 1 : 0,
+      'date': date.toIso8601String(), // Add this field
     };
   }
 
@@ -42,6 +45,7 @@ class CalendarEvent {
           : null,
       color: map['color'] as String?,
       isCompleted: (map['is_completed'] as int?) == 1,
+      date: DateTime.parse(map['date'] as String), // Add this field
     );
   }
 }

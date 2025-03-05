@@ -1,4 +1,3 @@
-import 'package:sqflite/sqflite.dart';
 import '../models/label_model.dart';
 import '../services/database_service.dart';
 

@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:sqflite/sqflite.dart';
 import '../services/focus_mode_service.dart';
-import '../providers/theme_provider.dart';
-import '../providers/focus_mode_provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:io' show Platform;
 
@@ -174,7 +171,7 @@ class _TimerPageState extends ConsumerState<TimerPage> {
       // Call the callback to update stats on HomePage
       widget.onSessionComplete(sessionDuration);
       
-      _showTimeUpDialog(context as BuildContext);
+      _showTimeUpDialog(context);
       _resetTimer();
     } catch (e) {
       debugPrint('Error saving focus session: $e');
@@ -290,13 +287,6 @@ class _TimerPageState extends ConsumerState<TimerPage> {
     );
   }
   
-  String _formatTime(int seconds) {
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds % 3600) ~/ 60;
-    final secs = seconds % 60;
-    
-    return "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}";
-  }
   
   String _formatDuration(int seconds) {
     final hours = seconds ~/ 3600;

@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:table_calendar/table_calendar.dart';
 import '../models/calendar_event_model.dart';
 import '../services/database_service.dart';
 

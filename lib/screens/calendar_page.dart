@@ -394,8 +394,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   startTime: _startTime,
                   endTime: _endTime,
                   isCompleted: _selectedEvent?.isCompleted ?? false,
-                  date:
-                      eventDate, // Always use the normalized date from the selected day
+                  date: eventDate, // Always use the normalized date from the selected day
                 );
 
                 if (_isEditing) {

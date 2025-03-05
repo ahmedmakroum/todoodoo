@@ -627,26 +627,27 @@ class DatabaseService {
 
   Future<int> insertCalendarEvent(CalendarEvent event) async {
     final db = await database;
-    
+
     // Ensure we're using the date from the event
     final eventDate = event.date;
-    
+
     return await db.insert('CalendarEvents', {
       'title': event.title,
       'description': event.description,
       'start_time': event.startTime?.toIso8601String(),
       'end_time': event.endTime?.toIso8601String(),
-      'date': eventDate.toIso8601String(), // Use the date directly from the event
+      'date':
+          eventDate.toIso8601String(), // Use the date directly from the event
       'is_completed': event.isCompleted ? 1 : 0,
     });
   }
 
   Future<int> updateCalendarEvent(CalendarEvent event) async {
     final db = await database;
-    
+
     // Ensure we're using the date from the event
     final eventDate = event.date;
-    
+
     return await db.update(
       'CalendarEvents',
       {
@@ -654,7 +655,8 @@ class DatabaseService {
         'description': event.description,
         'start_time': event.startTime?.toIso8601String(),
         'end_time': event.endTime?.toIso8601String(),
-        'date': eventDate.toIso8601String(), // Use the date directly from the event
+        'date':
+            eventDate.toIso8601String(), // Use the date directly from the event
         'is_completed': event.isCompleted ? 1 : 0,
       },
       where: 'id = ?',

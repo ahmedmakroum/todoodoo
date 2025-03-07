@@ -504,8 +504,23 @@ class DatabaseService {
             )
           ''');
         }
+
+        // Check if the column 'is_completed' exists before adding it
+        if (!await _isColumnExists(db, 'BoardTasks', 'is_completed')) {
+          await db.execute('ALTER TABLE BoardTasks ADD COLUMN is_completed INTEGER DEFAULT 0');
+        }
       },
     );
+  }
+
+  Future<bool> _isColumnExists(Database db, String tableName, String columnName) async {
+    final result = await db.rawQuery('PRAGMA table_info($tableName)');
+    for (var column in result) {
+      if (column['name'] == columnName) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<int> insertTask(TaskModel task) async {

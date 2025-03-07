@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Database files
+*.db
+.dart_tool/sqflite_common_ffi/databases/
+
+# Flutter web build
+build/

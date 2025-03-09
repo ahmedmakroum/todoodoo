@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "todo.mak.todoodoo"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 34  // Change from 35 to 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -28,6 +28,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled true
     }
 
     buildTypes {
@@ -41,4 +42,21 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation 'androidx.multidex:multidex:2.0.1'
+}
+
+// Force updated Kotlin libraries to avoid dexing issues
+configurations.all {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == "org.jetbrains.kotlin") {
+            if (details.requested.name == "kotlin-android-extensions-runtime" ||
+                details.requested.name == "kotlin-parcelize-runtime") {
+                details.useVersion "1.9.24"
+                details.because("Force version 1.9.24 to fix dexing errors")
+            }
+        }
+    }
 }

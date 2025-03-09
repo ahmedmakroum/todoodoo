@@ -1,0 +1,1 @@
+/home/arx/Projects/todoodoo/todoodoo/build/app/intermediates/cxx/Debug/j5r2p6v2/obj/armeabi-v7a

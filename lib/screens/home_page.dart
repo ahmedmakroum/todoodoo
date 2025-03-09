@@ -103,7 +103,7 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
             ],
           ).createShader(bounds),
           child: const Text(
-            'ToDoodoo',
+            'Todoodoo',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,

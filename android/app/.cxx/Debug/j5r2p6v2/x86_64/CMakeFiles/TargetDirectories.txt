@@ -1,0 +1,2 @@
+/home/arx/Projects/todoodoo/todoodoo/android/app/.cxx/Debug/j5r2p6v2/x86_64/CMakeFiles/edit_cache.dir
+/home/arx/Projects/todoodoo/todoodoo/android/app/.cxx/Debug/j5r2p6v2/x86_64/CMakeFiles/rebuild_cache.dir

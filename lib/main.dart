@@ -9,6 +9,8 @@ void main() {
 }
 
 class MyApp extends ConsumerWidget {
+  static var routeObserver;
+
   const MyApp({Key? key}) : super(key: key);
 
   @override
@@ -16,7 +18,7 @@ class MyApp extends ConsumerWidget {
     final isDarkMode = ref.watch(themeProvider);
     
     return MaterialApp(
-      title: 'TodoDooo',
+      title: 'Tododooo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

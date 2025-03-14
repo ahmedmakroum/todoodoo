@@ -102,7 +102,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
                 ],
               ).createShader(bounds),
               child: const Text(
-                'ToDoodoo',
+                'Todoodoo',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,

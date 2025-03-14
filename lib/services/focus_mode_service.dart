@@ -1,29 +1,29 @@
-import 'dart:async';
-import '../models/focus_session_model.dart';  
 import 'package:sqflite/sqflite.dart';
+import 'package:todoodoo/models/focus_session_model.dart';
 
+class FocusSessionService {
+  static final FocusSessionService _instance = FocusSessionService._internal();
+  Database? _database; // use nullable field
 
+  factory FocusSessionService() => _instance;
+  FocusSessionService._internal();
 
-
-    class FocusSessionService {
-    static final FocusSessionService _instance = FocusSessionService._internal();
-    late final Database database;
-    
-    factory FocusSessionService() => _instance;
-    
-    FocusSessionService._internal();
-
-    void initialize(Database db) {
-        database = db;
+  void initialize(Database db) {
+    if (_database != null) {
+      // Already initialized; ignore subsequent calls.
+      return;
     }
-    
-    Future<int> insertFocusSession(FocusSession session) async {
-        return await database.insert('FocusSessions', session.toMap());
+    _database = db;
+  }
+
+  bool get isInitialized => _database != null;
+
+  Database get database {
+    if (_database == null) {
+      throw Exception('Database not initialized');
     }
-    
-    Future<List<FocusSession>> getFocusSessions() async {
-        final List<Map<String, dynamic>> maps = await database.query('FocusSessions');
-        return List.generate(maps.length, (i) => FocusSession.fromMap(maps[i]));
-    }
-    }
-    
+    return _database!;
+  }
+
+  insertFocusSession(FocusSession session) {}
+}

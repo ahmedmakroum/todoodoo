@@ -5,6 +5,11 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/focus_mode_service.dart';
 import 'package:intl/intl.dart';
 import 'dart:io' show Platform;
+import '../services/database_service.dart';
+import 'package:flutter/widgets.dart'; // For RouteAware and AutomaticKeepAliveClientMixin
+
+// Ensure routeObserver is defined
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class TimerPage extends ConsumerStatefulWidget {
   final Function(int duration) onSessionComplete;
@@ -18,18 +23,19 @@ class TimerPage extends ConsumerStatefulWidget {
   _TimerPageState createState() => _TimerPageState();
 }
 
-class _TimerPageState extends ConsumerState<TimerPage> {
+class _TimerPageState extends ConsumerState<TimerPage>
+    with RouteAware, AutomaticKeepAliveClientMixin {
   // Timer Logic
   int totalWorkTime = 1500; // 25 minutes default
   int remainingTime = 1500;
   double progress = 0.0;
   bool isRunning = false;
   Timer? _timer;
-  
+
   // Session tracking
   DateTime? sessionStartTime;
   int totalSessionTime = 0;
-  
+
   // For tracking completed sessions
   List<Map<String, dynamic>> sessions = [];
 
@@ -40,8 +46,36 @@ class _TimerPageState extends ConsumerState<TimerPage> {
   @override
   void initState() {
     super.initState();
+    _initializeFocusSessionService().then((_) {
+      loadSessionHistory();
+    });
     initializeNotifications();
-    loadSessionHistory();
+  }
+
+  @override
+  bool get wantKeepAlive => true; // Preserve state across screen switches
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ModalRoute? route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      // Use the global routeObserver imported from main.dart.
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPushNext() {
+    // Commented out so the timer is not stopped when switching screens:
+    // _stopTimer();
+  }
+
+  Future<void> _initializeFocusSessionService() async {
+    if (!FocusSessionService().isInitialized) {
+      final db = await DatabaseService().database;
+      FocusSessionService().initialize(db);
+    }
   }
 
   Future<void> initializeNotifications() async {
@@ -77,7 +111,7 @@ class _TimerPageState extends ConsumerState<TimerPage> {
     }
     // Add other platform specific initializations as needed
   }
-  
+
   Future<void> loadSessionHistory() async {
     try {
       final db = await FocusSessionService().database;
@@ -85,9 +119,11 @@ class _TimerPageState extends ConsumerState<TimerPage> {
         'FocusSessions',
         orderBy: 'start_time DESC',
         where: 'start_time >= ?',
-        whereArgs: [DateTime.now().subtract(const Duration(hours: 24)).toIso8601String()],
+        whereArgs: [
+          DateTime.now().subtract(const Duration(hours: 24)).toIso8601String()
+        ],
       );
-      
+
       setState(() {
         sessions = results;
       });
@@ -103,7 +139,7 @@ class _TimerPageState extends ConsumerState<TimerPage> {
           sessionStartTime = DateTime.now();
         }
       });
-      
+
       _timer = Timer.periodic(Duration(seconds: 1), (timer) {
         if (remainingTime > 0 && isRunning) {
           setState(() {
@@ -124,7 +160,7 @@ class _TimerPageState extends ConsumerState<TimerPage> {
     if (_timer != null && _timer!.isActive) {
       _timer!.cancel();
     }
-    
+
     if (isRunning) {
       // Calculate and store the session time so far
       if (sessionStartTime != null) {
@@ -135,7 +171,7 @@ class _TimerPageState extends ConsumerState<TimerPage> {
         sessionStartTime = now;
       }
     }
-    
+
     setState(() {
       isRunning = false;
     });
@@ -150,12 +186,12 @@ class _TimerPageState extends ConsumerState<TimerPage> {
       sessionStartTime = null;
     });
   }
-  
+
   void _completeSession() async {
     _stopTimer();
-    
+
     final sessionDuration = totalWorkTime - remainingTime + totalSessionTime;
-    
+
     try {
       // Save session to database
       final db = await FocusSessionService().database;
@@ -164,13 +200,13 @@ class _TimerPageState extends ConsumerState<TimerPage> {
         'end_time': DateTime.now().toIso8601String(),
         'duration_seconds': sessionDuration,
       });
-      
+
       // Reload sessions to show the new one
       await loadSessionHistory();
-      
+
       // Call the callback to update stats on HomePage
       widget.onSessionComplete(sessionDuration);
-      
+
       _showTimeUpDialog(context);
       _resetTimer();
     } catch (e) {
@@ -262,7 +298,8 @@ class _TimerPageState extends ConsumerState<TimerPage> {
               actions: [
                 TextButton(
                   onPressed: () {
-                    final newTotalTime = (selectedHours * 3600) + (selectedMinutes * 60);
+                    final newTotalTime =
+                        (selectedHours * 3600) + (selectedMinutes * 60);
                     if (newTotalTime > 0) {
                       // Update in the parent widget too
                       this.setState(() {
@@ -286,12 +323,11 @@ class _TimerPageState extends ConsumerState<TimerPage> {
       },
     );
   }
-  
-  
+
   String _formatDuration(int seconds) {
     final hours = seconds ~/ 3600;
     final minutes = (seconds % 3600) ~/ 60;
-    
+
     if (hours > 0) {
       return "$hours h ${minutes > 0 ? '$minutes min' : ''}";
     } else {
@@ -301,6 +337,7 @@ class _TimerPageState extends ConsumerState<TimerPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required by AutomaticKeepAliveClientMixin
     final int hours = remainingTime ~/ 3600;
     final int minutes = (remainingTime % 3600) ~/ 60;
     final int seconds = remainingTime % 60;
@@ -372,10 +409,12 @@ class _TimerPageState extends ConsumerState<TimerPage> {
                         children: [
                           ElevatedButton.icon(
                             onPressed: isRunning ? _stopTimer : _startTimer,
-                            icon: Icon(isRunning ? Icons.pause : Icons.play_arrow),
+                            icon: Icon(
+                                isRunning ? Icons.pause : Icons.play_arrow),
                             label: Text(isRunning ? 'Pause' : 'Start'),
                             style: ElevatedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
                             ),
                           ),
                           SizedBox(width: 16),
@@ -384,7 +423,8 @@ class _TimerPageState extends ConsumerState<TimerPage> {
                             icon: Icon(Icons.refresh),
                             label: Text('Reset'),
                             style: ElevatedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
                             ),
                           ),
                         ],
@@ -395,7 +435,8 @@ class _TimerPageState extends ConsumerState<TimerPage> {
                         icon: Icon(Icons.settings),
                         label: Text('Timer Settings'),
                         style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
                         ),
                       ),
                     ],
@@ -403,7 +444,7 @@ class _TimerPageState extends ConsumerState<TimerPage> {
                 ),
               ),
               SizedBox(height: 16),
-              
+
               // Session History
               Expanded(
                 child: Card(
@@ -435,13 +476,18 @@ class _TimerPageState extends ConsumerState<TimerPage> {
                                   itemCount: sessions.length,
                                   itemBuilder: (context, index) {
                                     final session = sessions[index];
-                                    final startTime = DateTime.parse(session['start_time'] as String);
-                                    final duration = session['duration_seconds'] as int;
+                                    final startTime = DateTime.parse(
+                                        session['start_time'] as String);
+                                    final duration =
+                                        session['duration_seconds'] as int;
                                     return ListTile(
                                       leading: Icon(Icons.timer),
-                                      title: Text(DateFormat('MMM d, h:mm a').format(startTime)),
-                                      subtitle: Text('Duration: ${_formatDuration(duration)}'),
-                                      trailing: Icon(Icons.check_circle, color: Colors.green),
+                                      title: Text(DateFormat('MMM d, h:mm a')
+                                          .format(startTime)),
+                                      subtitle: Text(
+                                          'Duration: ${_formatDuration(duration)}'),
+                                      trailing: Icon(Icons.check_circle,
+                                          color: Colors.green),
                                     );
                                   },
                                 ),
@@ -460,6 +506,7 @@ class _TimerPageState extends ConsumerState<TimerPage> {
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _timer?.cancel();
     super.dispose();
   }

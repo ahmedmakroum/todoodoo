@@ -114,3 +114,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 
 ## Compatible with web , you can visit the app at https://ahmedmakroum.github.io/todoodoo/
+
+
+
+
+the version hosted above is not the working version, you can for or pull the last commit and itll be working fine 
